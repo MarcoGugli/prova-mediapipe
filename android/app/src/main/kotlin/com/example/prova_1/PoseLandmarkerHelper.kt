@@ -32,6 +32,11 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 
+interface ImageDetectionListener {
+    fun onPoseDetected(resultBundle: PoseLandmarkerHelper.ResultBundle)
+    fun onError(error: String)
+}
+
 class PoseLandmarkerHelper(
     var minPoseDetectionConfidence: Float = DEFAULT_POSE_DETECTION_CONFIDENCE,
     var minPoseTrackingConfidence: Float = DEFAULT_POSE_TRACKING_CONFIDENCE,
@@ -41,7 +46,8 @@ class PoseLandmarkerHelper(
     var runningMode: RunningMode = RunningMode.IMAGE,
     val context: Context,
     // this listener is only used when running in RunningMode.LIVE_STREAM
-    val poseLandmarkerHelperListener: LandmarkerListener? = null
+    val poseLandmarkerHelperListener: LandmarkerListener? = null,
+    var imageDetectionListener: ImageDetectionListener? = null
 ) {
 
     // For this example this needs to be a var so it can be reset on changes.
@@ -319,14 +325,20 @@ class PoseLandmarkerHelper(
         // Run pose landmarker using MediaPipe Pose Landmarker API
         poseLandmarker?.detect(mpImage)?.also { landmarkResult ->
             val inferenceTimeMs = SystemClock.uptimeMillis() - startTime
-            return ResultBundle(
+            val results = ResultBundle(
                 listOf(landmarkResult),
                 inferenceTimeMs,
                 image.height,
                 image.width
             )
+            return results
+            imageDetectionListener?.onPoseDetected(results)
+                return results
         }
 
+        imageDetectionListener?.onError("Pose Landmarker failed to detect.")
+        return null
+        
         // If poseLandmarker?.detect() returns null, this is likely an error. Returning null
         // to indicate this.
         poseLandmarkerHelperListener?.onError(
